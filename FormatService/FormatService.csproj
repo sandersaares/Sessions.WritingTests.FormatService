@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <LangVersion>latest</LangVersion>
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <LangVersion>latest</LangVersion>
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="EmbeddedBinaries\colors.xml" />
+    <None Remove="EmbeddedBinaries\configure.xml" />
+    <None Remove="EmbeddedBinaries\convert.exe" />
+    <None Remove="EmbeddedBinaries\delegates.xml" />
+    <None Remove="EmbeddedBinaries\english.xml" />
+    <None Remove="EmbeddedBinaries\locale.xml" />
+    <None Remove="EmbeddedBinaries\log.xml" />
+    <None Remove="EmbeddedBinaries\magic.xml" />
+    <None Remove="EmbeddedBinaries\mime.xml" />
+    <None Remove="EmbeddedBinaries\policy.xml" />
+    <None Remove="EmbeddedBinaries\quantization-table.xml" />
+    <None Remove="EmbeddedBinaries\thresholds.xml" />
+    <None Remove="EmbeddedBinaries\type-ghostscript.xml" />
+    <None Remove="EmbeddedBinaries\type.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="EmbeddedBinaries\colors.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\configure.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\convert.exe" />
+    <EmbeddedResource Include="EmbeddedBinaries\delegates.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\english.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\locale.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\log.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\magic.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\mime.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\policy.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\quantization-table.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\thresholds.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\type-ghostscript.xml" />
+    <EmbeddedResource Include="EmbeddedBinaries\type.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Axinom.Toolkit" Version="11.0.0" />
+    <PackageReference Include="Ben.Demystifier" Version="0.1.1" />
+    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.6" />
+    <PackageReference Include="WindowsAzure.Storage" Version="9.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
