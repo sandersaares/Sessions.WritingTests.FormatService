@@ -1,6 +1,7 @@
 ﻿using Axinom.Toolkit;
 using FormatService.Api;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -31,6 +32,16 @@ namespace FormatService
             public Task<ImageFormatting.FormattedImage[]> FormattingTask { get; set; }
         }
 
+        private static readonly IImageDownloader _imageDownloader = new HttpImageDownloader();
+        private static readonly IFormattedImagePublisher _publisher = new AzureFormattedImagePublisher();
+
+        private readonly List<ImageFormat> _imageFormats = new List<ImageFormat>();
+
+        public JobsController()
+        {
+            Program.Configuration.GetSection("ImageFormats").Bind(_imageFormats);
+        }
+
         [HttpPost]
         public async Task<IActionResult> Post([FromBody]JobIn job, CancellationToken cancel)
         {
@@ -40,7 +51,7 @@ namespace FormatService
             var jobId = Guid.NewGuid();
 
             // Start the actual formatting. The job ID is used as the prefix for all output filenames.
-            var formattingTask = Task.Run(() => ImageFormatting.FormatAsync(job.ImageUrl, job.OutputStorageContainerName, jobId.ToString(), cancel));
+            var formattingTask = Task.Run(() => ImageFormatting.FormatAsync(job.ImageUrl, job.OutputStorageContainerName, jobId.ToString(), _imageFormats.ToArray(), _imageDownloader, _publisher, cancel));
 
             // And make it expire some time after the task is done, to avoid leaving garbage in memory.
             formattingTask.ContinueWith(async delegate (Task t)

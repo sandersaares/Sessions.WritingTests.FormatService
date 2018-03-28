@@ -1,13 +1,9 @@
 ﻿using Axinom.Toolkit;
-using Microsoft.Extensions.Configuration;
-using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Blob;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,30 +14,17 @@ namespace FormatService
     /// </summary>
     public sealed class ImageFormatting
     {
-        private static readonly HttpClient _httpClient = new HttpClient();
-
-        // Loaded from configuration.
-        sealed class ImageFormat
-        {
-            public string Name { get; set; }
-            public int Width { get; set; }
-            public int Height { get; set; }
-        }
-
         /// <summary>
         /// Formats an image and publishes all of its formats to the specified container.
         /// </summary>
-        public static async Task<FormattedImage[]> FormatAsync(Uri imageUrl, string publishStorageContainerName, string filenamePrefix, CancellationToken cancel)
+        public static async Task<FormattedImage[]> FormatAsync(Uri imageUrl, string publishStorageContainerName, string filenamePrefix, ImageFormat[] formats, IImageDownloader imageDownloader, IFormattedImagePublisher publisher, CancellationToken cancel)
         {
             Helpers.Argument.ValidateIsAbsoluteUrl(imageUrl, nameof(imageUrl));
             Helpers.Argument.ValidateIsNotNullOrWhitespace(publishStorageContainerName, nameof(publishStorageContainerName));
             Helpers.Argument.ValidateIsNotNullOrWhitespace(filenamePrefix, nameof(filenamePrefix));
 
-            var formats = new List<ImageFormat>();
-            Program.Configuration.GetSection("ImageFormats").Bind(formats);
-
             var log = _rootLog.CreateChildSource(imageUrl.ToString());
-            log.Info($"Formatting with {formats.Count} formats.");
+            log.Info($"Formatting with {formats.Length} formats.");
 
             var duration = Stopwatch.StartNew();
 
@@ -55,7 +38,7 @@ namespace FormatService
                     // Name it .bin to signal that we do not care about the extension - it is just binary data.
                     var inputPath = Path.Combine(workingDirectory.Path, "Input.bin");
 
-                    using (var inputStream = await _httpClient.GetStreamAsync(imageUrl).WithAbandonment(cancel))
+                    using (var inputStream = await imageDownloader.GetStreamAsync(imageUrl, cancel))
                     using (var inputFile = File.Create(inputPath))
                         await inputStream.CopyToAsync(inputFile, 81920 /* Default */, cancel);
 
@@ -77,15 +60,6 @@ namespace FormatService
 
                     await Task.WhenAll(formatSubtasks.Select(subtask => subtask.resizeTask));
 
-                    // All images formatted. Now upload to Azure!
-                    log.Debug("Connecting to Azure.");
-
-                    var storageAccount = CloudStorageAccount.Parse(Program.Configuration["AzureStorageConnectionString"]);
-                    var blobClient = storageAccount.CreateCloudBlobClient();
-                    var storageContainer = blobClient.GetContainerReference(publishStorageContainerName);
-
-                    await storageContainer.CreateIfNotExistsAsync(default, default, default, cancel);
-
                     // Upload each formatted image and return the URLs per format.
                     log.Debug("Starting upload subtasks.");
 
@@ -93,21 +67,9 @@ namespace FormatService
 
                     foreach (var formatTask in formatSubtasks)
                     {
-                        var blob = storageContainer.GetBlockBlobReference(formatTask.filename);
+                        var publishFilename = Path.GetFileName(formatTask.outputPath);
 
-                        var uploadTask = Task.Run(async delegate
-                        {
-                            await blob.UploadFromFileAsync(formatTask.outputPath, default, default, default, cancel);
-
-                            var sas = blob.GetSharedAccessSignature(new SharedAccessBlobPolicy
-                            {
-                                Permissions = SharedAccessBlobPermissions.Read,
-                                SharedAccessExpiryTime = DateTimeOffset.UtcNow.AddDays(365 * 25),
-                                SharedAccessStartTime = DateTimeOffset.UtcNow.AddDays(-1)
-                            });
-
-                            return blob.Uri + sas;
-                        });
+                        var uploadTask = Task.Run(() => publisher.PublishAsync(formatTask.outputPath, publishStorageContainerName, publishFilename, cancel));
 
                         uploadSubtasks.Add((formatTask.format, uploadTask));
                     }
