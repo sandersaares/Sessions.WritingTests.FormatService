@@ -2,9 +2,11 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Tests;
 
 namespace DevApp
 {
@@ -15,6 +17,9 @@ namespace DevApp
 
         static async Task Main(string[] args)
         {
+            var gridBytes = ImageFormattingTests.GenerateGrid(20, 20);
+            File.WriteAllBytes("C:\\tmp\\test.png", gridBytes);
+
             var jobId = await StartJobAsync();
 
             Console.WriteLine($"Job {jobId} started. Waiting for it to complete.");
