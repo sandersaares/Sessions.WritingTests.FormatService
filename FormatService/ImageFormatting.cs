@@ -17,6 +17,9 @@ namespace FormatService
         /// <summary>
         /// Formats an image and publishes all of its formats to the specified container.
         /// </summary>
+        /// <remarks>
+        /// Output files are always JPG.
+        /// </remarks>
         public static async Task<FormattedImage[]> FormatAsync(Uri imageUrl, string publishStorageContainerName, string filenamePrefix, ImageFormat[] formats, IImageDownloader imageDownloader, IFormattedImagePublisher publisher, CancellationToken cancel)
         {
             Helpers.Argument.ValidateIsAbsoluteUrl(imageUrl, nameof(imageUrl));
@@ -50,7 +53,7 @@ namespace FormatService
                     foreach (var format in formats)
                     {
                         // Output is always JPG, even when PNG might be better. This inefficiency is by (poor) design.
-                        var outputFilename = filenamePrefix + $"-{format.Height}p.jpg";
+                        var outputFilename = filenamePrefix + $"{format.Name}-{format.Height}p.jpg";
                         var outputPath = Path.Combine(workingDirectory.Path, outputFilename);
 
                         var resizeTask = imageMagick.ResizeAsync(inputPath, outputPath, format.Width, format.Height);

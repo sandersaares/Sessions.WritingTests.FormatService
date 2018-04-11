@@ -1,4 +1,5 @@
-﻿using FormatService;
+﻿using Axinom.Toolkit;
+using FormatService;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -14,11 +15,180 @@ using System.Threading.Tasks;
 namespace Tests
 {
     [TestClass]
-    public sealed class ImageFormattingTests
+    public sealed class ImageFormattingTests : TestClassBase
     {
+        // Default image formats to use unless overridden by special test.
+        private static readonly ImageFormat[] DefaultFormats = new[]
+        {
+            new ImageFormat
+            {
+                Name = "1",
+                Width = 1,
+                Height = 1
+            },
+            new ImageFormat
+            {
+                Name = "22",
+                Width = 22,
+                Height = 22
+            },
+            new ImageFormat
+            {
+                Name = "333",
+                Width = 333,
+                Height = 333
+            },
+            new ImageFormat
+            {
+                Name = "Banner",
+                Width = 500,
+                Height = 200
+            },
+            new ImageFormat
+            {
+                Name = "Banner square",
+                Width = 200,
+                Height = 200
+            },
+            new ImageFormat
+            {
+                Name = "Tall",
+                Width = 100,
+                Height = 1000
+            },
+            new ImageFormat
+            {
+                Name = "Wide",
+                Width = 1000,
+                Height = 100
+            }
+        };
+
         private static readonly Uri DefaultImageUrl = new Uri("http://images.local/picture.jpg");
         private const string DefaultPublishContainerName = "FormattedImages";
         private const string DefaultNamePrefix = "Image";
+
+        [DataTestMethod]
+        [DataRow("exit_left.png")]
+        [DataRow("exit_left_tiny.jpg")]
+        [DataRow("planet_mars_4k_8k-HD.jpg")]
+        public async Task Format_WithVariousImages_GeneratesAndPublishForAllFormats(string filename)
+        {
+            var inputPath = ResolveTestDataPath(filename);
+            var inputBytes = File.ReadAllBytes(inputPath);
+
+            var downloader = new FakeImageDownloader();
+            downloader.ImageBytes = inputBytes;
+
+            var publisher = new FakeFormattedImagePublisher();
+
+            var formattedImages = await ImageFormatting.FormatAsync(DefaultImageUrl, DefaultPublishContainerName, DefaultNamePrefix, DefaultFormats, downloader, publisher, default);
+
+            Assert.AreEqual(DefaultFormats.Length, formattedImages.Length);
+            Assert.AreEqual(DefaultFormats.Length, publisher.PublishedImages.Count);
+
+            var filenames = publisher.PublishedImages.Select(i => i.publishFilename).ToArray();
+            var uniqueFilenames = filenames.Distinct().ToArray();
+
+            Assert.AreEqual(uniqueFilenames.Length, filenames.Length);
+
+            foreach (var name in filenames)
+                StringAssert.EndsWith(name, ".jpg");
+        }
+
+        [TestMethod]
+        public async Task Format_With404Image_ThrowsExceptionAndPublishesNothing()
+        {
+            var downloader = new FakeImageDownloader();
+            var publisher = new FakeFormattedImagePublisher();
+
+            try
+            {
+                await ImageFormatting.FormatAsync(DefaultImageUrl, DefaultPublishContainerName, DefaultNamePrefix, DefaultFormats, downloader, publisher, default);
+            }
+            catch (Exception ex)
+            {
+                Log.Default.Debug($"Got expected exception: {ex}");
+
+                Assert.AreEqual(0, publisher.PublishedImages.Count);
+
+                return;
+            }
+
+            Assert.Fail("No exception was thrown for 404 image - silently ignored? Bad code!");
+        }
+
+        [TestMethod]
+        public async Task Format_WithGif_ThrowsExceptionAndPublishesNothing()
+        {
+            var downloader = new FakeImageDownloader();
+            downloader.ImageBytes = File.ReadAllBytes(ResolveTestDataPath("loading.gif"));
+
+            var publisher = new FakeFormattedImagePublisher();
+
+            try
+            {
+                await ImageFormatting.FormatAsync(DefaultImageUrl, DefaultPublishContainerName, DefaultNamePrefix, DefaultFormats, downloader, publisher, default);
+            }
+            catch (Exception ex)
+            {
+                Log.Default.Debug($"Got expected exception: {ex}");
+
+                Assert.AreEqual(0, publisher.PublishedImages.Count);
+
+                return;
+            }
+
+            Assert.Fail("No exception was thrown for GIF input - silently ignored? Bad code!");
+        }
+
+        [TestMethod]
+        public async Task Format_WithFailedPublish_ThrowsException()
+        {
+            var downloader = new FakeImageDownloader();
+            downloader.ImageBytes = File.ReadAllBytes(ResolveTestDataPath("exit_left.png"));
+
+            var publisher = new FakeFormattedImagePublisher();
+            publisher.AlwaysFails = true;
+
+            try
+            {
+                await ImageFormatting.FormatAsync(DefaultImageUrl, DefaultPublishContainerName, DefaultNamePrefix, DefaultFormats, downloader, publisher, default);
+            }
+            catch (Exception ex)
+            {
+                Log.Default.Debug($"Got expected exception: {ex}");
+
+                Assert.IsTrue(publisher.PublishedImages.Count > 0, "Did not find any attempts to publish any images");
+
+                return;
+            }
+
+            Assert.Fail("No exception was thrown for failed publish - silently ignored? Bad code!");
+        }
+
+        [TestMethod]
+        public async Task Format_WithNotAnImage_ThrowsException()
+        {
+            var downloader = new FakeImageDownloader();
+            downloader.ImageBytes = File.ReadAllBytes(ResolveTestDataPath("dash.js"));
+
+            var publisher = new FakeFormattedImagePublisher();
+
+            try
+            {
+                await ImageFormatting.FormatAsync(DefaultImageUrl, DefaultPublishContainerName, DefaultNamePrefix, DefaultFormats, downloader, publisher, default);
+            }
+            catch (Exception ex)
+            {
+                Log.Default.Debug($"Got expected exception: {ex}");
+
+                Assert.AreEqual(0, publisher.PublishedImages.Count);
+                return;
+            }
+
+            Assert.Fail("No exception was thrown for non-image file - silently ignored? Bad code!");
+        }
 
         [DataTestMethod]
         [DataRow(10, 10, 100, 100, 10, 10)]
@@ -48,7 +218,7 @@ namespace Tests
             var formattedImages = await ImageFormatting.FormatAsync(DefaultImageUrl, DefaultPublishContainerName, DefaultNamePrefix, new[] { format }, downloader, publisher, default);
 
             // Assert
-            using (var image = Image.Load(publisher.PublishedImageBytes))
+            using (var image = Image.Load(publisher.PublishedImages.Single().imageBytes))
             {
                 // Quick sanity check.
                 Assert.AreEqual(formatW, image.Width);

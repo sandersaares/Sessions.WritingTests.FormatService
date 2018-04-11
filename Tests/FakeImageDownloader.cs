@@ -1,4 +1,5 @@
-﻿using FormatService;
+﻿using Axinom.Toolkit;
+using FormatService;
 using System;
 using System.IO;
 using System.Threading;
@@ -16,6 +17,9 @@ namespace Tests
 
         public Task<Stream> GetStreamAsync(Uri requestUrl, CancellationToken cancel)
         {
+            if (ImageBytes == null)
+                throw new EnvironmentException("There is no image.");
+
             return Task.FromResult<Stream>(new MemoryStream(ImageBytes));
         }
     }

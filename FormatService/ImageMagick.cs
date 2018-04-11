@@ -10,6 +10,18 @@ namespace FormatService
     {
         public Task ResizeAsync(string sourcePath, string destinationPath, int width, int height)
         {
+            using (var inputFile = File.OpenRead(sourcePath))
+            using (var reader = new BinaryReader(inputFile))
+            {
+                if (inputFile.Length >= 5)
+                {
+                    var prefix = reader.ReadBytes(5);
+
+                    if (prefix[0] == 'G' && prefix[1] == 'I' && prefix[2] == 'F' && prefix[3] == '8' && prefix[4] == '9')
+                        throw new NotSupportedException("GIF are not supported");
+                }
+            }
+
             return ExternalTool.ExecuteAsync(ExePath, $"\"{sourcePath}\" -resize {width}x{height}^ -gravity center -extent {width}x{height} \"{destinationPath}\"");
         }
 
